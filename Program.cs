@@ -6,7 +6,7 @@ namespace FixProjectJsonWarnings
 {
     class Program
     {
-        private static readonly string[] _packOptionProps = new[] { "repository", "tags", "licenseUrl", };
+        private static readonly string[] _packOptionProps = new[] { "repository", "tags", "licenseUrl", "projectUrl", };
 
         static int Main(string[] args)
         {
@@ -15,7 +15,7 @@ namespace FixProjectJsonWarnings
                 Console.WriteLine("Usage FixProjectJsonWarnings [repo-root]");
                 return 1;
             }
-             
+
             var dir = args[0];
             foreach (var file in Directory.EnumerateFiles(dir, "project.json", SearchOption.AllDirectories))
             {
@@ -24,10 +24,10 @@ namespace FixProjectJsonWarnings
 
                 if (replaced != content)
                 {
-                    File.WriteAllText(file, replaced);
+                    File.WriteAllText(file, replaced, System.Text.Encoding.UTF8);
                 }
             }
-            
+
             return 0;
         }
 
@@ -43,6 +43,7 @@ namespace FixProjectJsonWarnings
             MovePackIncludeToPackOptions(root);
             MoveContent(root);
             MoveResourcesToBuild(root);
+            MoveCompileToBuildOptions(root);
 
             return root.ToString();
         }
@@ -103,11 +104,11 @@ namespace FixProjectJsonWarnings
                 {
                     var publishInclude = GetOrAddProperty(root, "publishOptions", property);
                     publishInclude[item.Item2] = property.Value;
-                    
+
                     var buildOptions = GetOrAddProperty(root, "buildOptions", property);
                     var copyToOutput = GetOrAddProperty(buildOptions, "copyToOutput", null);
                     copyToOutput[item.Item2] = property.Value;
-                    
+
                     property.Remove();
                 }
             }
@@ -161,6 +162,19 @@ namespace FixProjectJsonWarnings
                     tfmCompilationOptions.Replace(new JProperty("buildOptions", tfmCompilationOptions.Value));
                 }
             }
+        }
+
+        private static void MoveCompileToBuildOptions(JObject root)
+        {
+            var compile = root.Property("compile");
+            if (compile == null)
+            {
+                return;
+            }
+            var buildOptions = GetOrAddProperty(root, "buildOptions", compile);
+            var buildCompile = GetOrAddProperty(buildOptions, "compile", null);
+            buildCompile["include"] = compile.Value;
+            compile.Remove();
         }
     }
 }
